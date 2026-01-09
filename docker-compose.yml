@@ -1,0 +1,15 @@
+﻿services:
+  postgres:
+    image: postgres:16
+    container_name: bfsi-postgres
+    environment:
+      POSTGRES_DB: bfsi
+      POSTGRES_USER: bfsi
+      POSTGRES_PASSWORD: bfsi123
+    ports:
+      - "5432:5432"
+    volumes:
+      - bfsi_pgdata:/var/lib/postgresql/data
+
+volumes:
+  bfsi_pgdata:

@@ -72,6 +72,11 @@
   <artifactId>h2</artifactId>
   <scope>runtime</scope>
 </dependency>
+<dependency>
+  <groupId>org.postgresql</groupId>
+  <artifactId>postgresql</artifactId>
+  <scope>runtime</scope>
+</dependency>
 </dependencies>
 
 	<build>
@@ -104,4 +109,5 @@
 	</build>
 
 </project>
+
 
