@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestClient;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
@@ -15,6 +16,7 @@ public class TransferController {
 
     private final AccountRepository accountRepository;
     private final TransactionRepository transactionRepository;
+    private final RestClient restClient = RestClient.create();
 
     public TransferController(AccountRepository accountRepository, TransactionRepository transactionRepository) {
         this.accountRepository = accountRepository;
@@ -25,6 +27,17 @@ public class TransferController {
         @NotNull public Long fromAccountId;
         @NotNull public Long toAccountId;
         @NotNull public BigDecimal amount;
+    }
+
+    public static class PaymentRequest {
+        public Long fromAccountId;
+        public Long toAccountId;
+        public BigDecimal amount;
+        public PaymentRequest(Long fromAccountId, Long toAccountId, BigDecimal amount) {
+            this.fromAccountId = fromAccountId;
+            this.toAccountId = toAccountId;
+            this.amount = amount;
+        }
     }
 
     @PostMapping
@@ -53,6 +66,19 @@ public class TransferController {
             return transactionRepository.save(failed);
         }
 
+        // Call payment-service to approve/process
+        String paymentStatus = restClient.post()
+                .uri("http://127.0.0.1:8082/payments/process")
+                .body(new PaymentRequest(req.fromAccountId, req.toAccountId, req.amount))
+                .retrieve()
+                .body(String.class);
+
+        if (!"SUCCESS".equalsIgnoreCase(paymentStatus)) {
+            Transaction failed = new Transaction(req.fromAccountId, req.toAccountId, req.amount, "FAILED", Instant.now());
+            return transactionRepository.save(failed);
+        }
+
+        // Apply balance changes only after SUCCESS
         from.setBalance(from.getBalance().subtract(req.amount));
         to.setBalance(to.getBalance().add(req.amount));
 
