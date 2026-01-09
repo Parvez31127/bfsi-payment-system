@@ -1,6 +1,6 @@
 package com.bfsi.customer;
 
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -23,12 +23,6 @@ public class TransferController {
         this.transactionRepository = transactionRepository;
     }
 
-    public static class TransferRequest {
-        @NotNull public Long fromAccountId;
-        @NotNull public Long toAccountId;
-        @NotNull public BigDecimal amount;
-    }
-
     public static class PaymentRequest {
         public Long fromAccountId;
         public Long toAccountId;
@@ -42,15 +36,9 @@ public class TransferController {
 
     @PostMapping
     @Transactional
-    public Transaction transfer(@RequestBody TransferRequest req) {
-        if (req.fromAccountId == null || req.toAccountId == null || req.amount == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "fromAccountId, toAccountId, amount are required");
-        }
+    public Transaction transfer(@Valid @RequestBody TransferRequestDto req) {
         if (req.fromAccountId.equals(req.toAccountId)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "fromAccountId and toAccountId must be different");
-        }
-        if (req.amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "amount must be > 0");
         }
 
         Account from = accountRepository.findById(req.fromAccountId)
