@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
@@ -13,6 +14,8 @@ import java.time.Instant;
 @RestController
 @RequestMapping("/transfers")
 public class TransferController {
+
+    private static final String INTERNAL_TOKEN = "bfsi-internal-dev-token";
 
     private final AccountRepository accountRepository;
     private final TransactionRepository transactionRepository;
@@ -27,6 +30,7 @@ public class TransferController {
         public Long fromAccountId;
         public Long toAccountId;
         public BigDecimal amount;
+
         public PaymentRequest(Long fromAccountId, Long toAccountId, BigDecimal amount) {
             this.fromAccountId = fromAccountId;
             this.toAccountId = toAccountId;
@@ -50,30 +54,32 @@ public class TransferController {
         if (to.getBalance() == null) to.setBalance(BigDecimal.ZERO);
 
         if (from.getBalance().compareTo(req.amount) < 0) {
-            Transaction failed = new Transaction(req.fromAccountId, req.toAccountId, req.amount, "FAILED", Instant.now());
-            return transactionRepository.save(failed);
+            return transactionRepository.save(new Transaction(req.fromAccountId, req.toAccountId, req.amount, "FAILED", Instant.now()));
         }
 
-        // Call payment-service to approve/process
-        String paymentStatus = restClient.post()
-                .uri("http://127.0.0.1:8082/payments/process")
-                .body(new PaymentRequest(req.fromAccountId, req.toAccountId, req.amount))
-                .retrieve()
-                .body(String.class);
+        // payment-service call: any 4xx/5xx/network error => FAILED (no 500 to client)
+        String paymentStatus = "FAILED";
+        try {
+            paymentStatus = restClient.post()
+                    .uri("http://127.0.0.1:8082/payments/process")
+                    .header("X-Internal-Token", INTERNAL_TOKEN)
+                    .body(new PaymentRequest(req.fromAccountId, req.toAccountId, req.amount))
+                    .retrieve()
+                    .body(String.class);
+        } catch (RestClientException ex) {
+            paymentStatus = "FAILED";
+        }
 
         if (!"SUCCESS".equalsIgnoreCase(paymentStatus)) {
-            Transaction failed = new Transaction(req.fromAccountId, req.toAccountId, req.amount, "FAILED", Instant.now());
-            return transactionRepository.save(failed);
+            return transactionRepository.save(new Transaction(req.fromAccountId, req.toAccountId, req.amount, "FAILED", Instant.now()));
         }
 
-        // Apply balance changes only after SUCCESS
         from.setBalance(from.getBalance().subtract(req.amount));
         to.setBalance(to.getBalance().add(req.amount));
 
         accountRepository.save(from);
         accountRepository.save(to);
 
-        Transaction success = new Transaction(req.fromAccountId, req.toAccountId, req.amount, "SUCCESS", Instant.now());
-        return transactionRepository.save(success);
+        return transactionRepository.save(new Transaction(req.fromAccountId, req.toAccountId, req.amount, "SUCCESS", Instant.now()));
     }
 }
