@@ -19,21 +19,18 @@ public class PaymentController {
     }
 
     @PostMapping("/process")
-    public String process(
-            @RequestHeader(value = "X-Internal-Token", required = false) String internalToken,
-            @RequestBody PaymentRequest req
-    ) {
-        if (!INTERNAL_TOKEN.equals(internalToken)) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing/invalid internal token");
+    public String process(@RequestBody PaymentRequest req,
+                          @RequestHeader(value = "X-Internal-Token", required = false) String internalToken) {
+
+        if (!"bfsi-internal-dev-token".equals(internalToken)) {
+            return "FAILED";
         }
 
         if (req == null || req.amount == null || req.amount.signum() <= 0) {
             return "FAILED";
         }
-
         return "SUCCESS";
     }
-
     @GetMapping("/ping")
     public String ping() {
         return "payment pong";
