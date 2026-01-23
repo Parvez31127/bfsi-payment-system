@@ -1,5 +1,5 @@
 ﻿services:
-  postgres:
+  bfsi-postgres:
     image: postgres:16
     container_name: bfsi-postgres
     environment:
@@ -10,6 +10,37 @@
       - "5432:5432"
     volumes:
       - bfsi_pgdata:/var/lib/postgresql/data
+
+  customer-service:
+    build: ./customer-service
+    container_name: customer-service
+    environment:
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://bfsi-postgres:5432/bfsi
+      SPRING_DATASOURCE_USERNAME: bfsi
+      SPRING_DATASOURCE_PASSWORD: bfsi123
+    ports:
+      - "8081:8081"
+    depends_on:
+      - bfsi-postgres
+
+  payment-service:
+    build: ./payment-service
+    container_name: payment-service
+    environment:
+      SERVER_PORT: 8082
+      SERVER_ADDRESS: 0.0.0.0
+    ports:
+      - "8082:8082"
+
+  gateway-service:
+    build: ./gateway-service
+    container_name: gateway-service
+    ports:
+      - "8080:8080"
+    depends_on:
+      - customer-service
+      - payment-service
 
 volumes:
   bfsi_pgdata:

@@ -61,7 +61,7 @@ public class TransferController {
         String paymentStatus = "FAILED";
         try {
             paymentStatus = restClient.post()
-                    .uri("http://127.0.0.1:8082/payments/process")
+                    .uri("http://payment-service:8082/payments/process")
                     .header("X-Internal-Token", INTERNAL_TOKEN)
                     .body(new PaymentRequest(req.fromAccountId, req.toAccountId, req.amount))
                     .retrieve()
